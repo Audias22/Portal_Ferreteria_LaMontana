@@ -1,0 +1,8 @@
+# Configuración con contraseñas y API Key reales (usar config.example.php como plantilla)
+config.php
+
+# Registros generados en el servidor
+logs/*
+!logs/.htaccess
+
+*.bak

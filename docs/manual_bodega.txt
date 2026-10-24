@@ -1,0 +1,6 @@
+PROCEDIMIENTO DE RECEPCION EN BODEGA
+
+1. Verificar la factura contra la orden de compra.
+2. Contar unidades y revisar empaques dañados.
+3. Registrar el ingreso en el sistema el mismo día.
+4. Ubicar el producto en su estante según categoría.

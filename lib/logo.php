@@ -1,0 +1,1 @@
+<svg class="logo-svg" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="6" fill="#d98c1f"/><path d="M5 31 L15 15 L21 24 L26 17 L35 31 Z" fill="#3b2a1a"/><path d="M15 15 L18.2 20.1 L15.6 21.8 L13.3 18.2 Z" fill="#f6efe4"/></svg>
