@@ -38,6 +38,7 @@ Con esos eventos SecureWatch detecta, entre otros: fuerza bruta, SQL Injection, 
 - Enlaces de recuperación de un solo uso, válidos 30 minutos, guardados solo como hash.
 - Usuario de base de datos sin permiso `DELETE`: ventas y productos se anulan o desactivan, no se borran.
 - Encabezados de seguridad (CSP, X-Frame-Options, nosniff) y cierre de sesión por inactividad.
+- Respeta los bloqueos de IP hechos en SecureWatch: consulta la lista cada 30 segundos y responde *Acceso bloqueado* a esas IP. Si el SIEM no responde, usa la última lista conocida.
 
 ## Instalación (XAMPP)
 

@@ -13,6 +13,52 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 
 const ROLES = ['admin' => 'Administrador', 'empleado' => 'Ventas', 'bodega' => 'Bodega'];
 
+/**
+ * IP bloqueadas desde SecureWatch. La lista se consulta al SIEM como máximo cada 30 segundos
+ * y se guarda en logs/siem_bloqueos.json. Si el SIEM no responde se usa la última lista conocida.
+ */
+function siem_blocked_ips(): array
+{
+    $cache = __DIR__ . '/../logs/siem_bloqueos.json';
+    $data = is_file($cache) ? (json_decode((string)@file_get_contents($cache), true) ?: []) : [];
+    if (time() - (int)($data['fetched'] ?? 0) < 30 || !function_exists('curl_init')) return (array)($data['ips'] ?? []);
+    $data['fetched'] = time();   // aunque falle, no se reintenta en cada petición
+    $ch = curl_init(str_replace('events.php', 'blocklist.php', SIEM_ENDPOINT) . '?source=' . rawurlencode(SIEM_SOURCE));
+    curl_setopt_array($ch, [
+        CURLOPT_HTTPHEADER => ['X-API-Key: ' . SIEM_API_KEY],
+        CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 1, CURLOPT_TIMEOUT => 2,
+    ]);
+    $resp = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    $json = $code === 200 ? json_decode((string)$resp, true) : null;
+    if (is_array($json['ips'] ?? null)) $data['ips'] = array_values(array_filter($json['ips'], 'is_string'));
+    @file_put_contents($cache, json_encode($data), LOCK_EX);
+    return (array)($data['ips'] ?? []);
+}
+
+/** Corta la petición si la IP del visitante fue bloqueada en SecureWatch. */
+function siem_block_gate(): void
+{
+    if (PHP_SAPI === 'cli') return;
+    $ip = client_ip();
+    if (!in_array($ip, siem_blocked_ips(), true)) return;
+    // Se avisa al SIEM como máximo una vez cada 5 minutos por IP, para no inundarlo.
+    $mark = __DIR__ . '/../logs/bloqueo_' . preg_replace('/[^0-9a-f.:]/i', '_', $ip) . '.txt';
+    if (!is_file($mark) || time() - filemtime($mark) > 300) {
+        @touch($mark);
+        siem('BLOCKED_ACCESS', 'Acceso rechazado: IP bloqueada por SecureWatch', 'DENIED',
+            ['method' => $_SERVER['REQUEST_METHOD'] ?? 'GET', 'endpoint' => mb_substr($_SERVER['REQUEST_URI'] ?? '', 0, 500)]);
+    }
+    http_response_code(403);
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Acceso bloqueado</title></head>'
+        . '<body style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:80px auto;padding:0 16px;color:#222">'
+        . '<h1 style="font-size:22px">Acceso bloqueado</h1><p>El acceso desde su dirección (' . e($ip) . ') fue bloqueado por seguridad.</p>'
+        . '<p>Si cree que es un error, comuníquese con el administrador del sistema.</p></body></html>';
+    exit;
+}
+
 function db(): PDO
 {
     static $pdo = null;
@@ -184,3 +230,5 @@ function send_mail_lab(string $to, string $subject, string $body): void
     $msg = ['fecha' => date('Y-m-d H:i:s'), 'para' => $to, 'asunto' => $subject, 'cuerpo' => $body];
     @file_put_contents(__DIR__ . '/../logs/correo_saliente.log', json_encode($msg, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL, FILE_APPEND | LOCK_EX);
 }
+
+siem_block_gate();
